@@ -1,0 +1,12 @@
+Ziel: Erzeuge eine ETL Pipeline, die die Werte von Datenstreams verschiedener Sensoren aufnimmt, zeitlich registriert und in bestimmte Topics ablegt.
+
+Phase 0: Erzeuge ein Git Repository und ggf. Unittests.
+
+Phase 1: Erzeuge eine virtuelle Maschine mit drei Sensoren, die Datenströme in verschiedenen Geschwindigkeiten streamen. Der Einfachheit halber nur 1D-Sensoren.
+- Sensor 1: O2-Sensor, 1 Hz
+- Sensor 2: Drucksensor, 10 Hz
+- Sensor 3: Photodiode, 1000 Hz
+Die Maschine verfügt über eine ansteuerbare Schnittstelle, die von der ETL-Pipeline angesprochen wird. Hier könnte man überlegen, ob man eine spezifische Schnittstelle implementiert, bspw. eine REST-API oder so etwas?
+Ziel: Sensoren streamen kontiuierlich Werte, die mittels der Schnittstelle zugänglich sind.
+
+Phase 2: Erzeuge eine Pipeline, die, sobald Werte da sind, diese entnimmt und einem Topic zuweist. Hier erst einmal eine vernünftige Technologie aussuchen.
