@@ -25,42 +25,59 @@ class machine:
     def start_measurement(self):
         """Start a thread for each sensor. Call the thread depending on the sensor frequency."""
 
-        workers = []
+        self.workers = []
         for sensor in self.sensors_machine:
-            thread = threading.Thread(
-                target=sensor.generate_data(), kwargs={"delay": 2}
-            )
-            workers.append(thread)
+            thread = threading.Thread(target=sensor.generate_data)
+            self.workers.append((sensor, thread))
+
+        for sensor, thread in self.workers:
+            thread.start()
 
     def stop_measurement(self):
-        pass
+        for sensor, thread in self.workers:
+            sensor.running = False
+
+        for sensor, thread in self.workers:
+            thread.join()
 
 
 class sensor:
     def __init__(self, type, data_frequency):
         self.type = type
         self.data_frequency = data_frequency
-        self.stream = None
+        self.running = False
+        self.sensor_value = None
 
     def generate_data(self):
         """Create output depending on the sensor type."""
-        out = 0
 
-        if self.type == "analog_0to5V":
-            return random.random() * 5
+        pause = 1 / self.data_frequency  # in sec
+        self.running = True
 
-        if self.type == "analog_4to20mA":
-            return random.random() * 16 + 4
+        while self.running:
+            out = 0
 
-        if self.type == "digital_8bit":
-            return random.randint(0, 255)
+            if self.type == "analog_0to5V":
+                self.sensor_value = random.random() * 5
 
-        else:
-            return out
+            elif self.type == "analog_4to20mA":
+                self.sensor_value = random.random() * 16 + 4
+
+            elif self.type == "digital_8bit":
+                self.sensor_value = random.randint(0, 255)
+
+            else:
+                self.sensor_value = out
+
+            time.sleep(pause)
+            print(self.sensor_value)
 
 
 # main
-sensor_list = ["analog_0to5V", "analog_4to20mA", "digital_8bit"]
-frequencies_hertz = [1, 10, 100]
-machine_1 = machine(sensor_list, frequencies_hertz)
-machine_1.start_measurement()
+if __name__ == "__main__":
+    sensor_list = ["analog_0to5V", "analog_4to20mA", "digital_8bit"]
+    frequencies_hertz = [1, 10, 100]
+    machine_1 = machine(sensor_list, frequencies_hertz)
+    machine_1.start_measurement()
+    time.sleep(3)
+    machine_1.stop_measurement()
