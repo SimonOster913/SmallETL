@@ -1,29 +1,65 @@
 import random
 import threading
 import time
+from paho.mqtt import client as mqtt_client
 
 
 class machine:
-    def __init__(self, sensor_list, frequencies_hertz):
+    def __init__(self, sensor_list):
         self.sensor_list = sensor_list
-        self.frequencies_hertz = frequencies_hertz
-        self.init_sensors(self.sensor_list, self.frequencies_hertz)
+        self.init_sensors(self.sensor_list)
 
-    def init_sensors(self, sensor_list, frequencies_hertz):
+    def init_sensors(self, sensor_list):
         """Instanciate sensor objects.
 
         Args:
-            sensor_list (list): Hold information about number of sensors and their type.
+            sensor_list (list of tuples): Hold information about sensors in the form (type, frequency).
         """
 
         self.sensors_machine = list()
 
-        for sensor_type, frequency in zip(sensor_list, frequencies_hertz):
+        for sensor_type, frequency in sensor_list:
             sensor_instance = sensor(sensor_type, frequency)
             self.sensors_machine.append(sensor_instance)
 
+    def connect_to_broker(self):
+        broker = "127.0.0.1"
+        port = 1883
+        topic = "python/mqtt"
+        client_id = f"python-mqtt-{random.randint(0, 1000)}"
+
+        # callback function when client receives a CONNACK response from the server
+        def on_connect(client, userdata, flags, rc, properties):
+            if rc == 0:
+                print("Connected to MQTT Broker")
+            else:
+                print("Failed to connect, return code %d/n", rc)
+
+        # callback for when a PUBLISH message is received from the server
+        def on_message(client, userdata, msg):
+            print(msg.topic + " " + str(msg.payload))
+
+        self.client = mqtt_client.Client(
+            client_id=client_id,
+            callback_api_version=mqtt_client.CallbackAPIVersion.VERSION2,
+        )
+        self.client.on_connect = on_connect
+        self.client.on_message = on_message
+        self.client.connect(broker, port)
+        self.client.loop_start()
+
+    def disconnect_from_broker(self):
+        if hasattr(self, "client"):
+            self.client.loop_stop()
+            print("Disconnected from MQTT Broker")
+        else:
+            AttributeError("Client not initiated yet")
+
+    def publish_data(self):
+        pass
+
     def start_measurement(self):
-        """Start a thread for each sensor. Call the thread depending on the sensor frequency."""
+        """Start a thread for each sensor."""
 
         self.workers = []
         for sensor in self.sensors_machine:
@@ -75,9 +111,11 @@ class sensor:
 
 # main
 if __name__ == "__main__":
-    sensor_list = ["analog_0to5V", "analog_4to20mA", "digital_8bit"]
-    frequencies_hertz = [1, 10, 100]
-    machine_1 = machine(sensor_list, frequencies_hertz)
-    machine_1.start_measurement()
-    time.sleep(3)
-    machine_1.stop_measurement()
+    sensor_list = [("analog_0to5V", 1), ("analog_4to20mA", 10), ("digital_8bit", 100)]
+    machine_1 = machine(sensor_list)
+    # machine_1.connect_to_broker()
+    machine_1.disconnect_from_broker()
+    print(machine_1.client)
+    # machine_1.start_measurement()
+    # time.sleep(3)
+    # machine_1.stop_measurement()

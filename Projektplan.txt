@@ -9,4 +9,8 @@ Phase 1: Erzeuge eine virtuelle Maschine mit drei Sensoren, die Datenströme in 
 Die Maschine verfügt über eine ansteuerbare Schnittstelle, die von der ETL-Pipeline angesprochen wird. Hier könnte man überlegen, ob man eine spezifische Schnittstelle implementiert, bspw. eine REST-API oder so etwas?
 Ziel: Sensoren streamen kontiuierlich Werte, die mittels der Schnittstelle zugänglich sind.
 
-Phase 2: Erzeuge eine Pipeline, die, sobald Werte da sind, diese entnimmt und einem Topic zuweist. Hier erst einmal eine vernünftige Technologie aussuchen.
+Phase 2: Erzeuge einen MQTT-Client in der Maschine, der sich mit einem Mosquitto-Broker (localhost) verbindet. Für jeden Sensor soll eine Nachricht in einem eigenen Topic veröffentlicht werden.
+
+Phase 3: Registriere die ankommenden Daten nach ihrem Zeitstempel --> "Transfer" einer ETL Pipeline
+
+Phase 4: Speichere die Daten in einer Datenbank.
