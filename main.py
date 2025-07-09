@@ -71,18 +71,6 @@ class machine:
         else:
             AttributeError("Client not initiated yet")
 
-    def publish_data(self):
-        """Generate virtual sensor data and publish it in topic via mqtt broker."""
-
-        self.connect_to_broker()
-        self.client.loop_start()
-
-        # publish sensor data in between
-        # do something
-
-        self.client.loop_stop()
-        self.disconnect_from_broker()
-
     def start_measurement(self):
         """Start a thread for each sensor."""
 
@@ -136,7 +124,8 @@ class sensor:
 
 # main
 if __name__ == "__main__":
-    sensor_list = [("analog_0to5V", 1), ("analog_4to20mA", 10), ("digital_8bit", 100)]
+    # sensor_list = [("analog_0to5V", 1), ("analog_4to20mA", 10), ("digital_8bit", 100)]
+    sensor_list = [("analog_0to5V", 1)]
     machine_1 = machine(sensor_list)
     machine_1.init_client()
     machine_1.publish_data()
