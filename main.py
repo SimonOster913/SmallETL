@@ -22,15 +22,14 @@ class machine:
             sensor_instance = sensor(sensor_type, frequency)
             self.sensors_machine.append(sensor_instance)
 
-    def connect_to_broker(self):
-        broker = "127.0.0.1"
-        port = 1883
-        topic = "python/mqtt"
+    def init_client(self):
+        """Set up mqtt client for connection with broker."""
+
         client_id = f"python-mqtt-{random.randint(0, 1000)}"
 
         # callback function when client receives a CONNACK response from the server
-        def on_connect(client, userdata, flags, rc, properties):
-            if rc == 0:
+        def on_connect(client, userdata, flags, reason_code, properties):
+            if reason_code == 0:
                 print("Connected to MQTT Broker")
             else:
                 print("Failed to connect, return code %d/n", rc)
@@ -39,24 +38,50 @@ class machine:
         def on_message(client, userdata, msg):
             print(msg.topic + " " + str(msg.payload))
 
+        # callback for when client receives a disconnect response from server
+        def on_disconnect(client, userdata, disconnect_flags, reason_code, properties):
+            if reason_code == 0:
+                print("Disconnected from MQTT Broker")
+            else:
+                print("Failed to disconnect, return code %d/n", reason_code)
+
         self.client = mqtt_client.Client(
             client_id=client_id,
             callback_api_version=mqtt_client.CallbackAPIVersion.VERSION2,
         )
         self.client.on_connect = on_connect
         self.client.on_message = on_message
-        self.client.connect(broker, port)
-        self.client.loop_start()
+        self.client.on_disconnect = on_disconnect
+
+    def connect_to_broker(self):
+        """Connect client to broker."""
+
+        broker = "127.0.0.1"
+        port = 1883
+        if hasattr(self, "client"):
+            self.client.connect(broker, port)
+        else:
+            AttributeError("Client not initiated yet")
 
     def disconnect_from_broker(self):
+        """Disconnect client from broker."""
+
         if hasattr(self, "client"):
-            self.client.loop_stop()
-            print("Disconnected from MQTT Broker")
+            self.client.disconnect()
         else:
             AttributeError("Client not initiated yet")
 
     def publish_data(self):
-        pass
+        """Generate virtual sensor data and publish it in topic via mqtt broker."""
+
+        self.connect_to_broker()
+        self.client.loop_start()
+
+        # publish sensor data in between
+        # do something
+
+        self.client.loop_stop()
+        self.disconnect_from_broker()
 
     def start_measurement(self):
         """Start a thread for each sensor."""
@@ -113,9 +138,8 @@ class sensor:
 if __name__ == "__main__":
     sensor_list = [("analog_0to5V", 1), ("analog_4to20mA", 10), ("digital_8bit", 100)]
     machine_1 = machine(sensor_list)
-    # machine_1.connect_to_broker()
-    machine_1.disconnect_from_broker()
-    print(machine_1.client)
+    machine_1.init_client()
+    machine_1.publish_data()
     # machine_1.start_measurement()
     # time.sleep(3)
     # machine_1.stop_measurement()
