@@ -7,6 +7,7 @@ from paho.mqtt import client as mqtt_client
 class machine:
     def __init__(self, sensor_list):
         self.sensor_list = sensor_list
+        self.publishing = False
         self.init_sensors(self.sensor_list)
 
     def init_sensors(self, sensor_list):
@@ -18,8 +19,8 @@ class machine:
 
         self.sensors_machine = list()
 
-        for sensor_type, frequency in sensor_list:
-            sensor_instance = sensor(sensor_type, frequency)
+        for output, frequency, measurand in sensor_list:
+            sensor_instance = sensor(output, frequency, measurand)
             self.sensors_machine.append(sensor_instance)
 
     def init_client(self):
@@ -71,29 +72,59 @@ class machine:
         else:
             AttributeError("Client not initiated yet")
 
+    def publish_data(self):
+        """Generate virtual sensor data and publish it in topic via mqtt broker."""
+
+        while self.publishing:
+            for sensor, thread, topic in self.workers:
+                sensor_value = sensor.sensor_value
+                print(sensor_value)
+                self.client.publish(topic, sensor_value)
+
     def start_measurement(self):
-        """Start a thread for each sensor."""
+        """Start a thread for each sensor and publish data of each sensor in a seperate topic via mqtt."""
+
+        # connect to mqtt broker
+        self.connect_to_broker()
+        self.client.loop_start()
 
         self.workers = []
         for sensor in self.sensors_machine:
+            topic = "sensor_data/" + sensor.measurand
             thread = threading.Thread(target=sensor.generate_data)
-            self.workers.append((sensor, thread))
+            self.workers.append((sensor, thread, topic))
 
-        for sensor, thread in self.workers:
+        for sensor, thread, topic in self.workers:
             thread.start()
 
+        self.publishing = True
+        self.publisher_thread = threading.Thread(target=self.publish_data)
+        self.publisher_thread.start()
+
     def stop_measurement(self):
-        for sensor, thread in self.workers:
+        """Stop all sensor and publishing threads and disconnect from mqtt broker."""
+
+        self.publishing = False
+
+        if hasattr(self, "publisher_thread"):
+            self.publisher_thread.join()
+
+        for sensor, thread, topic in self.workers:
             sensor.running = False
 
-        for sensor, thread in self.workers:
+        for sensor, thread, topic in self.workers:
             thread.join()
+
+        # close mqtt connection
+        self.client.loop_stop()
+        self.disconnect_from_broker()
 
 
 class sensor:
-    def __init__(self, type, data_frequency):
-        self.type = type
+    def __init__(self, output, data_frequency, measurand):
+        self.output = output
         self.data_frequency = data_frequency
+        self.measurand = measurand
         self.running = False
         self.sensor_value = None
 
@@ -106,29 +137,39 @@ class sensor:
         while self.running:
             out = 0
 
-            if self.type == "analog_0to5V":
+            if self.output == "analog_0to5V":
                 self.sensor_value = random.random() * 5
 
-            elif self.type == "analog_4to20mA":
+            elif self.output == "analog_4to20mA":
                 self.sensor_value = random.random() * 16 + 4
 
-            elif self.type == "digital_8bit":
+            elif self.output == "digital_8bit":
                 self.sensor_value = random.randint(0, 255)
 
             else:
                 self.sensor_value = out
 
             time.sleep(pause)
-            print(self.sensor_value)
 
 
 # main
 if __name__ == "__main__":
-    # sensor_list = [("analog_0to5V", 1), ("analog_4to20mA", 10), ("digital_8bit", 100)]
-    sensor_list = [("analog_0to5V", 1)]
+    # define sensors
+    sensor_output = ["analog_0to5V", "analog_4to20mA", "digital_8bit"]
+    sensor_frequency = [1, 10, 100]
+    sensor_measurand = ["pressure", "pressure_fine", "temperature"]
+
+    sensor_list = []
+    for output, frequency, measurand in zip(
+        sensor_output, sensor_frequency, sensor_measurand
+    ):
+        sensor_list.append((output, frequency, measurand))
+
+    # build machine
     machine_1 = machine(sensor_list)
     machine_1.init_client()
-    machine_1.publish_data()
-    # machine_1.start_measurement()
-    # time.sleep(3)
-    # machine_1.stop_measurement()
+
+    # produce data
+    machine_1.start_measurement()
+    time.sleep(3)
+    machine_1.stop_measurement()
