@@ -10,28 +10,22 @@ from sensor import Sensor
 class TestSensorMethods(unittest.TestCase):
     def test_sensor_output(self):
         # sensor inputs
-        sensor_instance_1 = Sensor("analog_0to5V", 1, "pressure")
-        sensor_instance_2 = Sensor("analog_4to20mA", 7, "oxygen")
-        sensor_instance_3 = Sensor("digital_8bit", 100, "temperature")
+        sensor_instance_1 = Sensor("analog_0to5V", "pressure")
+        sensor_instance_2 = Sensor("analog_4to20mA", "oxygen")
+        sensor_instance_3 = Sensor("digital_8bit", "temperature")
 
         sensor_list = [sensor_instance_1, sensor_instance_2, sensor_instance_3]
 
         # start thread to generate data
-        threads = []
         for sensor in sensor_list:
-            gererator_thread = threading.Thread(target=sensor.generate_data)
-            threads.append((gererator_thread, sensor))
-
-        for thread, sensor in threads:
-            thread.start()
+            sensor.start_data_stream()
 
         time.sleep(1)
 
         output = []
-        for thread, sensor in threads:
-            sensor.running = False
-            output.append(sensor.sensor_value)
-            thread.join()
+        for sensor in sensor_list:
+            output.append(sensor.measured_value.value)
+            sensor.stop_data_stream()
 
         # check type
         self.assertIsInstance(output[0], float)
