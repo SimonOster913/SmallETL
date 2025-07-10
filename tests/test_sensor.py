@@ -1,6 +1,5 @@
 import unittest
 import sys
-import threading
 import time
 
 sys.path.append("/home/simon/Python/ETL-1/virtual_machine")
