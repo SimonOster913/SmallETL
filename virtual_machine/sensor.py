@@ -1,33 +1,43 @@
 import time
 import random
+from multiprocessing import Process, Value
 
 
 class Sensor:
-    def __init__(self, output: str, data_frequency: int, measurand: str) -> None:
+    def __init__(self, output: str, measurand: str) -> None:
         self.output = output
-        self.data_frequency = data_frequency
         self.measurand = measurand
-        self.running = False
-        self.sensor_value = None
+        self.running = Value("b", False)
+        if self.output == "analog_0to5V" or self.output == "analog_4to20mA":
+            self.measured_value = Value("d", 0.0)
+        elif self.output == "digital_8bit":
+            self.measured_value = Value("i", 0)
 
-    def generate_data(self):
-        """Create output depending on the sensor type."""
+    def generate_data(self, running, measured_value):
+        """Create output depending on the sensor type in a separate thread."""
 
-        pause = 1 / self.data_frequency  # in sec
-        self.running = True
+        running.value = True
         out = 0
 
-        while self.running:
+        while running.value:
             if self.output == "analog_0to5V":
-                self.sensor_value = random.random() * 5
+                measured_value.value = random.random() * 5
 
             elif self.output == "analog_4to20mA":
-                self.sensor_value = random.random() * 16 + 4
+                measured_value.value = random.random() * 16 + 4
 
             elif self.output == "digital_8bit":
-                self.sensor_value = random.randint(0, 255)
+                measured_value.value = random.randint(0, 255)
 
             else:
-                self.sensor_value = out
-            print(pause)
-            time.sleep(pause)
+                measured_value.value = out
+
+    def start_data_stream(self):
+        self.process = Process(
+            target=self.generate_data, args=(self.running, self.measured_value)
+        )
+        self.process.start()
+
+    def stop_data_stream(self):
+        self.running.value = False
+        self.process.join()

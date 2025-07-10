@@ -1,4 +1,6 @@
 import random
+
+# from multiprocessing import Process, Value
 import threading
 from sensor import Sensor
 import time
@@ -6,11 +8,11 @@ from paho.mqtt import client as mqtt_client
 
 
 class Machine:
-    def __init__(self, sensor_list: list[tuple[str, int, str]]) -> None:
+    def __init__(self, sensor_list: list[tuple[str, str]]) -> None:
         self.sensor_list = sensor_list
         self.publishing = False
         self.client = None
-        self.publish_rate = 0.001
+        self.publish_rate = 0.1
         self.init_sensors(self.sensor_list)
 
     def init_sensors(self, sensor_list):
@@ -22,10 +24,9 @@ class Machine:
 
         self.sensors_machine = list()
 
-        for output, frequency, measurand in sensor_list:
-            sensor_instance = Sensor(output, frequency, measurand)
+        for output, measurand in sensor_list:
+            sensor_instance = Sensor(output, measurand)
             self.sensors_machine.append(sensor_instance)
-            print(self.sensors_machine)
 
     def init_client(self):
         """Set up mqtt client for connection with broker."""
@@ -59,26 +60,18 @@ class Machine:
         self.client.on_disconnect = on_disconnect
 
     def init_broker(self, adress: str, port: int):
-        """Set mqtt broker.
+        """Set mqtt broker."""
 
-        Args:
-            adress (str): TCP adress of broker.
-            port (int): Port of broker.
-        """
         self.broker_adress = adress
         self.broker_port = port
 
     def connect_to_broker(self):
-        """Connect client to broker."""
-
         if self.client is not None:
             self.client.connect(self.broker_adress, self.broker_port)
         else:
             raise AttributeError("Client not initiated yet")
 
     def disconnect_from_broker(self):
-        """Disconnect client from broker."""
-
         if self.client is not None:
             self.client.disconnect()
         else:
@@ -88,27 +81,29 @@ class Machine:
         """Generate virtual sensor data and publish it in topic via mqtt broker."""
 
         while self.publishing:
-            for sensor, thread, topic in self.workers:
-                sensor_value = sensor.sensor_value
-                self.client.publish(topic, sensor_value)
-                time.sleep(self.publish_rate)
+            for sensor, topic in zip(self.sensors_machine, self.topics):
+                sensor_output = sensor.measured_value.value
+                self.client.publish(topic, sensor_output)
+
+            time.sleep(self.publish_rate)
 
     def start_measurement(self):
         """Start a thread for each sensor and publish data of each sensor in a seperate topic via mqtt."""
+
+        # start data streaming by sensors
+        self.topics = []
+        for sensor in self.sensors_machine:
+            self.topics.append("sensor_data/" + sensor.measurand)
+            sensor.start_data_stream()
+
+        # wait until threads are up
+        time.sleep(0.5)
 
         # connect to mqtt broker
         self.connect_to_broker()
         self.client.loop_start()
 
-        self.workers = []
-        for sensor in self.sensors_machine:
-            topic = "sensor_data/" + sensor.measurand
-            thread = threading.Thread(target=sensor.generate_data)
-            self.workers.append((sensor, thread, topic))
-
-        for sensor, thread, topic in self.workers:
-            thread.start()
-
+        # start publishing to mqtt broker
         self.publishing = True
         self.publisher_thread = threading.Thread(target=self.publish_data)
         self.publisher_thread.start()
@@ -121,11 +116,8 @@ class Machine:
         if hasattr(self, "publisher_thread"):
             self.publisher_thread.join()
 
-        for sensor, thread, topic in self.workers:
-            sensor.running = False
-
-        for sensor, thread, topic in self.workers:
-            thread.join()
+        for sensor in self.sensors_machine:
+            sensor.stop_data_stream()
 
         # close mqtt connection
         self.client.loop_stop()
