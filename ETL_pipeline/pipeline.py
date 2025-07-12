@@ -1,10 +1,11 @@
+import random
 from paho.mqtt import client as mqtt_client
 
 
 class ETLPipeline:
     def __init__(self, topics: list):
         self.topics = topics
-        self.subscriber_list = None
+        self.subscriber_list = []
         self.broker_adress = None
         self.port = None
         self.init_db()
@@ -27,6 +28,8 @@ class mqtt_pipeline(ETLPipeline):
 
     def init_subscriber(self):
         """Define a general paho mqtt subscriber."""
+        
+        client_id = f"mqtt_subscriber-{random.randint(0, 1000)}"
 
         # callback for subscription
         def on_subscribe(client, userdata, mid, reason_code_list, properties):
@@ -69,12 +72,14 @@ class mqtt_pipeline(ETLPipeline):
             else:
                 print("Failed to disconnect, return code %d/n", reason_code)
 
-        self.subscriber = mqtt_client.Client(mqtt_client.CallbackAPIVersion.VERSION2)
-        self.subscriber.on_connect = on_connect
-        self.subscriber.on_message = on_message
-        self.subscriber.on_subscribe = on_subscribe
-        self.subscriber.on_unsubscribe = on_unsubscribe
-        self.subscriber.on_disconnect = on_disconnect
+        subscriber = mqtt_client.Client(client_id=subscriber_id, mqtt_client.CallbackAPIVersion.VERSION2)
+        subscriber.on_connect = on_connect
+        subscriber.on_message = on_message
+        subscriber.on_subscribe = on_subscribe
+        subscriber.on_unsubscribe = on_unsubscribe
+        subscriber.on_disconnect = on_disconnect
+        
+        return subscriber
 
     def init_broker(self, adress: str, port: int):
         """Set mqtt broker."""
@@ -88,3 +93,9 @@ class mqtt_pipeline(ETLPipeline):
         self.subscriber.user_data_set([])
         self.subscriber.connect(self.broker_adress, self.port)
         self.subscriber.subscribe(topic)
+        
+    def start_to_listen(self):
+        
+        for topic in self.topics:
+            subscriber = self.init_subscriber()
+            
