@@ -66,13 +66,6 @@ class ETLPipeline:
         self.broker_adress = adress
         self.broker_port = port
 
-    def subscribe_to_topic(self, topic: str):
-        """Connect mqtt client to a topic and start to listen."""
-
-        self.subscriber.user_data_set([])
-        self.subscriber.connect(self.broker_adress, self.port)
-        self.subscriber.subscribe(topic)
-
     def transform_data(self):
         pass
 
