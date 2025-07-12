@@ -9,6 +9,22 @@ class ETLPipeline:
         self.port = None
         self.init_db()
 
+    def transform_data(self):
+        pass
+
+    def init_db(self):
+        pass
+
+    def load_into_db(self):
+        pass
+
+
+class mqtt_pipeline(ETLPipeline):
+    """ETL pipeline using mqtt protocoll."""
+
+    def __init__(self, topics):
+        super().__init__(topics)
+
     def init_subscriber(self):
         """Define a general paho mqtt subscriber."""
 
@@ -72,12 +88,3 @@ class ETLPipeline:
         self.subscriber.user_data_set([])
         self.subscriber.connect(self.broker_adress, self.port)
         self.subscriber.subscribe(topic)
-
-    def transform_data(self):
-        pass
-
-    def init_db(self):
-        pass
-
-    def load_into_db(self):
-        pass
