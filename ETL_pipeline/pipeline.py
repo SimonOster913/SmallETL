@@ -7,9 +7,9 @@ class ETLPipeline:
     def __init__(self, topics: list):
         self.topics = topics
         self.subscriber = None
-        self.broker_adress = ""
+        self.broker_adress: str = ""
         self.last_values: dict = {}
-        self.port = None
+        self.port: int = None
         self.init_db()
 
     def transform_data(self):
@@ -22,7 +22,7 @@ class ETLPipeline:
         pass
 
 
-class mqtt_pipeline(ETLPipeline):
+class MQTTPipeline(ETLPipeline):
     """ETL pipeline using mqtt protocoll."""
 
     def __init__(self, topics):

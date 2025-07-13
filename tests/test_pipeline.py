@@ -8,11 +8,12 @@ import threading
 from paho.mqtt import client as mqtt_client
 
 sys.path.append("/home/simon/Python/ETL-1/ETL_pipeline")
-from pipeline import mqtt_pipeline
+from pipeline import MQTTPipeline
 
 
 def start_mosquitto():
-    """Starts the Mosquitto broker."""
+    """Start the Mosquitto broker."""
+
     try:
         process = subprocess.Popen(
             ["mosquitto", "-v"],
@@ -26,23 +27,6 @@ def start_mosquitto():
         print("Error: Mosquitto not found. Make sure it's installed and in your PATH.")
     except Exception as e:
         print(f"An error occurred: {e}")
-
-
-def publish_value_in_topic(adress: str, port: int, topic: str, value: int):
-    """_summary_
-
-    Args:
-        adress (str): MQTT broker TCP/IP adress
-        port (int): MQTT broker port
-        topic (str): Topic to publish in
-        value (int): Value to publish
-    """
-    client = define_mqtt_client()
-    client.connect(adress, port)
-    client.loop_start()
-    client.publish(topic, value)
-    time.sleep(0.1)
-    client.loop_stop()
 
 
 def define_mqtt_client():
@@ -60,16 +44,31 @@ def define_mqtt_client():
     return client
 
 
+def publish_value_in_topic(adress: str, port: int, topic: str, value: int):
+    """Publish single value in topic.
+
+    Args:
+        adress (str): MQTT broker TCP/IP adress
+        port (int): MQTT broker port
+        topic (str): Topic to publish in
+        value (int): Value to publish
+    """
+
+    client = define_mqtt_client()
+    client.connect(adress, port)
+    client.loop_start()
+    client.publish(topic, value)
+    time.sleep(0.1)
+    client.loop_stop()
+
+
 class TestPipelineMethods(unittest.TestCase):
     def test_basic_subscription(self):
         """Test if a basic subscription from MQTT broker is succesfull."""
 
-        # create a random topic
+        # create a random topic and value
         subtopic = "".join(random.choices(string.ascii_letters + string.digits, k=8))
         topic = "test_topic/" + subtopic
-
-        print(topic)
-        # create random value
         value_to_publish = random.randint(0, 1000)
 
         # set up broker
