@@ -1,12 +1,14 @@
 import random
 from paho.mqtt import client as mqtt_client
+import threading
 
 
 class ETLPipeline:
     def __init__(self, topics: list):
         self.topics = topics
-        self.subscriber_list = []
-        self.broker_adress = None
+        self.subscriber = None
+        self.broker_adress = ""
+        self.last_values: dict = {}
         self.port = None
         self.init_db()
 
@@ -28,8 +30,8 @@ class mqtt_pipeline(ETLPipeline):
 
     def init_subscriber(self):
         """Define a general paho mqtt subscriber."""
-        
-        client_id = f"mqtt_subscriber-{random.randint(0, 1000)}"
+
+        subscriber_id = f"mqtt_subscriber-{random.randint(0, 1000)}"
 
         # callback for subscription
         def on_subscribe(client, userdata, mid, reason_code_list, properties):
@@ -50,10 +52,15 @@ class mqtt_pipeline(ETLPipeline):
 
         # callback for messages
         def on_message(client, userdata, message):
-            userdata.append(message.payload)
+            topic = message.topic
+            payload = message.payload.decode()
+            print(f"Received from {topic}: {payload}")
+
+            # Beispiel: letzten Wert pro Topic speichern
+            self.last_values[topic] = payload
             # We only want to process 10 messages
-            if len(userdata) >= 10:
-                client.unsubscribe("$SYS/#")
+            # if len(userdata) >= 10:
+            #    client.unsubscribe("$SYS/#")
 
         # callback function when client receives a CONNACK response from the server
         def on_connect(client, userdata, flags, reason_code, properties):
@@ -62,8 +69,7 @@ class mqtt_pipeline(ETLPipeline):
                     f"Failed to connect: {reason_code}. loop_forever() will retry connection"
                 )
             else:
-                pass
-                # client.subscribe("$SYS/#")
+                print("Connect succesfully to broker.")
 
         # callback for when client receives a disconnect response from server
         def on_disconnect(client, userdata, disconnect_flags, reason_code, properties):
@@ -72,30 +78,46 @@ class mqtt_pipeline(ETLPipeline):
             else:
                 print("Failed to disconnect, return code %d/n", reason_code)
 
-        subscriber = mqtt_client.Client(client_id=subscriber_id, mqtt_client.CallbackAPIVersion.VERSION2)
+        subscriber = mqtt_client.Client(
+            client_id=subscriber_id,
+            callback_api_version=mqtt_client.CallbackAPIVersion.VERSION2,
+        )
         subscriber.on_connect = on_connect
         subscriber.on_message = on_message
         subscriber.on_subscribe = on_subscribe
         subscriber.on_unsubscribe = on_unsubscribe
         subscriber.on_disconnect = on_disconnect
-        
+
         return subscriber
 
-    def init_broker(self, adress: str, port: int):
+    def init_broker(self, broker_adress: str, port: int):
         """Set mqtt broker."""
 
-        self.broker_adress = adress
+        self.broker_adress = broker_adress
         self.broker_port = port
 
-    def subscribe_to_topic(self, topic: str):
+    def subscribe_to_topic(self):
         """Connect mqtt client to a topic and start to listen."""
 
+        self.subscriber = self.init_subscriber()
         self.subscriber.user_data_set([])
-        self.subscriber.connect(self.broker_adress, self.port)
-        self.subscriber.subscribe(topic)
-        
-    def start_to_listen(self):
-        
+        self.subscriber.connect(self.broker_adress, self.broker_port)
+
         for topic in self.topics:
-            subscriber = self.init_subscriber()
-            
+            self.subscriber.subscribe(topic)
+
+        self.subscriber.loop_start()
+
+    def start_to_listen(self):
+        """Connect all subscribers with the broker and start to listen to incoming messages."""
+
+        self.listening_thread = threading.Thread(target=self.subscribe_to_topic)
+        self.listening_thread.start()
+
+    def stop_listening(self):
+        if hasattr(self, "listening_thread"):
+            self.listening_thread.join()
+
+        # close mqtt connection
+        self.subscriber.loop_stop()
+        self.subscriber.disconnect()
