@@ -30,9 +30,11 @@ if __name__ == "__main__":
     pipeline_instance.init_subscriber()
     pipeline_instance.init_broker("127.0.0.1", 1883)
 
-    # produce data
+    # start ETL
     machine_instance.start_measurement()
     pipeline_instance.start_to_listen()
+    pipeline_instance.transform_and_load()
     time.sleep(6)
     machine_instance.stop_measurement()
     pipeline_instance.stop_listening()
+    pipeline_instance.stop_transform_and_load()

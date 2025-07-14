@@ -71,54 +71,55 @@ def random_sqlite_column_name(length=8):
 
 
 class TestPipelineMethods(unittest.TestCase):
-    # def test_basic_subscription(self):
-    #     """Test if a basic subscription from MQTT broker is succesfull."""
+    def test_basic_subscription(self):
+        """Test if a basic subscription from MQTT broker is succesfull."""
 
-    #     # create a random topic and value
-    #     subtopic = "".join(random.choices(string.ascii_letters + string.digits, k=8))
-    #     topic = "test_topic/" + subtopic
-    #     value_to_publish = random.randint(0, 1000)
+        # create a random topic and value
+        subtopic = "".join(random.choices(string.ascii_letters + string.digits, k=8))
+        topic = "test_topic/" + subtopic
+        value_to_publish = random.randint(0, 1000)
 
-    #     # set up broker
-    #     adress = "127.0.0.1"
-    #     port = 1883
+        # set up broker
+        adress = "127.0.0.1"
+        port = 1883
 
-    #     # setup pipeline
-    #     pipeline_instance = MQTTPipeline([topic])
-    #     pipeline_instance.init_subscriber()
-    #     pipeline_instance.init_broker(adress, port)
-    #     pipeline_instance.start_to_listen()
+        # setup pipeline
+        pipeline_instance = MQTTPipeline([topic])
+        pipeline_instance.init_subscriber()
+        pipeline_instance.init_broker(adress, port)
+        pipeline_instance.start_to_listen()
 
-    #     # run mqtt client
-    #     thread = threading.Thread(
-    #         target=publish_value_in_topic,
-    #         args=(
-    #             adress,
-    #             port,
-    #             topic,
-    #             value_to_publish,
-    #         ),
-    #     )
-    #     thread.start()
-    #     thread.join()
+        # run mqtt client
+        thread = threading.Thread(
+            target=publish_value_in_topic,
+            args=(
+                adress,
+                port,
+                topic,
+                value_to_publish,
+            ),
+        )
+        thread.start()
+        thread.join()
 
-    #     pipeline_instance.stop_listening()
+        pipeline_instance.stop_listening()
 
-    #     output = pipeline_instance.last_values[topic]
+        output = pipeline_instance.last_values[topic]
 
-    #     # check result
-    #     self.assertEqual(value_to_publish, int(output))
+        # check result
+        self.assertEqual(value_to_publish, int(output))
 
     def test_buffers(self):
         "Test for writing and removing values for a buffer based on topic."
 
+        # get random values and topics
         topics = []
         values = []
         for i in range(random.randint(1, 3)):
             subtopic = random_sqlite_column_name()
             topic = "test_topic/" + subtopic
             topics.append(topic)
-            values.append(str(random.randint(0, 1000)))
+            values.append(random.randint(0, 1000))
 
         # init buffers and write values to specific topics
         pipeline_instance = MQTTPipeline(topics)
@@ -136,53 +137,55 @@ class TestPipelineMethods(unittest.TestCase):
 
         self.assertListEqual(expected_output, items)
 
-    # def test_init_db(self):
-    #     "Test for setting up SQLite db based on topics."
+    def test_init_db(self):
+        "Test for setting up SQLite db based on topics."
 
-    #     # create a random topic
-    #     topics = []
-    #     for i in range(random.randint(1, 3)):
-    #         subtopic = random_sqlite_column_name()
-    #         topic = "test_topic/" + subtopic
-    #         topics.append(topic)
+        # create a random topic
+        topics = []
+        for i in range(random.randint(1, 3)):
+            subtopic = random_sqlite_column_name()
+            topic = "test_topic/" + subtopic
+            topics.append(topic)
 
-    #     pipeline_instance = MQTTPipeline(topics)
+        pipeline_instance = MQTTPipeline(topics)
+        pipeline_instance.init_db()
 
-    #     # return all columns in table
-    #     pipeline_instance.cur.execute("PRAGMA table_info(sensor_data)")
-    #     columns = pipeline_instance.cur.fetchall()
-    #     pipeline_instance.con.close()
+        # return all columns in table
+        pipeline_instance.cur.execute("PRAGMA table_info(sensor_data)")
+        columns = pipeline_instance.cur.fetchall()
+        pipeline_instance.con.close()
 
-    #     # generate expected table content
-    #     expected_output = []
-    #     for idx, topic in enumerate(topics):
-    #         expected_output.append((idx, topic.split("/")[1], "TEXT", 0, None, 0))
+        # generate expected table content
+        expected_output = []
+        for idx, topic in enumerate(topics):
+            expected_output.append((idx, topic.split("/")[1], "REAL", 0, None, 0))
 
-    #     # check result
-    #     self.assertListEqual(expected_output, columns)
+        # check result
+        self.assertListEqual(expected_output, columns)
 
-    # def test_write_into_db(self):
-    #     "Test for writing new values into a row in SQLite db based on topics."
+    def test_write_into_db(self):
+        "Test for writing new values into a row in SQLite db based on topics."
 
-    #     # create a random topic and value
-    #     topics = []
-    #     values = []
-    #     for i in range(random.randint(1, 3)):
-    #         subtopic = random_sqlite_column_name()
-    #         topic = "test_topic/" + subtopic
-    #         topics.append(topic)
-    #         values.append(str(random.randint(0, 1000)))
+        # create a random topic and value
+        topics = []
+        values = []
+        for i in range(random.randint(1, 3)):
+            subtopic = random_sqlite_column_name()
+            topic = "test_topic/" + subtopic
+            topics.append(topic)
+            values.append(random.randint(0, 1000))
 
-    #     pipeline_instance = MQTTPipeline(topics)
-    #     pipeline_instance.write_into_db(values)
+        pipeline_instance = MQTTPipeline(topics)
+        pipeline_instance.init_db()
+        pipeline_instance.write_into_db(values)
 
-    #     # return values from first column
-    #     pipeline_instance.cur.execute("SELECT * FROM sensor_data LIMIT 1")
-    #     columns = pipeline_instance.cur.fetchone()
-    #     pipeline_instance.con.close()
+        # return values from first column
+        pipeline_instance.cur.execute("SELECT * FROM sensor_data LIMIT 1")
+        columns = pipeline_instance.cur.fetchone()
+        pipeline_instance.con.close()
 
-    #     # check result
-    #     self.assertTupleEqual(tuple(values), columns)
+        # check result
+        self.assertTupleEqual(tuple(values), columns)
 
 
 if __name__ == "__main__":

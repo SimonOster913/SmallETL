@@ -3,6 +3,9 @@ from paho.mqtt import client as mqtt_client
 import sqlite3
 import threading
 import queue
+import statistics
+import os
+import time
 
 
 class ETLPipeline:
@@ -13,21 +16,15 @@ class ETLPipeline:
         self.last_values: dict = {}
         self.port: int = 0
         self.init_buffer()
-        self.init_db()
-
-    def transform_data(self):
-        pass
 
     def init_buffer(self):
         """Build a queue for each topic."""
 
         self.buffer_dict = {topic: queue.Queue() for topic in self.topics}
-        print(self.buffer_dict)
 
     def move_to_buffer(self, topic: str, value):
         """Add a value to a topic-specific buffer."""
 
-        print(topic, value)
         self.buffer_dict[topic].put(value)
 
     def remove_all_from_buffer(self, topic: str):
@@ -51,7 +48,7 @@ class ETLPipeline:
         self.cur = self.con.cursor()
 
         # create columns based on subscribed topics
-        columns = ", ".join([topic.split("/")[1] + " TEXT" for topic in self.topics])
+        columns = ", ".join([topic.split("/")[1] + " REAL" for topic in self.topics])
         self.cur.execute("DROP TABLE IF EXISTS sensor_data")
         self.cur.execute(f"CREATE TABLE sensor_data({columns})")
 
@@ -62,14 +59,55 @@ class ETLPipeline:
             values (str): Received messages from broker
         """
         insert_topics = ", ".join([topic.split("/")[1] for topic in self.topics])
-        insert_values = ", ".join([value for value in values])
+        placeholders = ", ".join(["?"] * len(values))
 
         self.cur.execute(
-            f"INSERT INTO sensor_data({insert_topics}) VALUES({insert_values})"
+            f"INSERT INTO sensor_data({insert_topics}) VALUES({placeholders})", values
         )
 
-    def delete_db():
-        pass
+        self.con.commit()
+
+    def delete_db(self):
+        """Delete SQLite database permanently"""
+
+        os.remove("sensor_data.db")
+
+    def transform_data(self):
+        """Do simple statistics after"""
+
+        self.init_db()
+
+        time_start = time.time()
+        self.perform_tl = True
+
+        while self.perform_tl:
+            time_diff = time.time() - time_start
+
+            if time_diff >= 1:
+                mean_value_list = []
+
+                for topic in self.topics:
+                    items = self.remove_all_from_buffer(topic)
+
+                    if items:
+                        mean_value_list.append(statistics.fmean(items))
+
+                    # print("hier angekommen")
+                    # std_value = math.stdev(items)
+                    # median_value = math.median(items)
+
+                if len(mean_value_list) == len(self.topics):
+                    self.write_into_db(mean_value_list)
+
+                time_start = time.time()
+
+    def transform_and_load(self):
+        self.tl_thread = threading.Thread(target=self.transform_data)
+        self.tl_thread.start()
+
+    def stop_transform_and_load(self):
+        self.perform_tl = False
+        self.tl_thread.join()
 
 
 class MQTTPipeline(ETLPipeline):
@@ -104,10 +142,11 @@ class MQTTPipeline(ETLPipeline):
         def on_message(client, userdata, message):
             topic = message.topic
             payload = message.payload.decode()
-            print(f"Received from {topic}: {payload}")
+            # print(f"Received from {topic}: {payload}")
 
             # Beispiel: letzten Wert pro Topic speichern
-            self.last_values[topic] = payload
+            self.last_values[topic] = float(payload)
+            self.move_to_buffer(topic, float(payload))
 
             # ADD HERE: Put incoming values into queue
 
