@@ -16,6 +16,12 @@ class ETLPipeline:
     def transform_data(self):
         pass
 
+    def init_queues(self):
+        pass
+
+    def move_to_queue(self):
+        pass
+
     def init_db(self):
         """Initiate a SQLite database for starters to store the acquired sensor data."""
 
@@ -34,11 +40,11 @@ class ETLPipeline:
         Args:
             values (str): Received messages from broker
         """
-        insert_values = []
-        insert_topics = []
-        for value, topic in zip(values, self.topics):
-            insert_values.append(value)
-            insert_topics.append(topic.split("/")[1])
+        insert_topics = ", ".join([topic.split("/")[1] for topic in self.topics])
+        insert_values = ", ".join([value for value in values])
+
+        print(insert_values)
+        print(insert_topics)
 
         self.cur.execute(
             f"INSERT INTO sensor_data({insert_topics}) VALUES({insert_values})"
