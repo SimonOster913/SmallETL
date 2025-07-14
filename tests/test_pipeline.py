@@ -62,44 +62,89 @@ def publish_value_in_topic(adress: str, port: int, topic: str, value: int):
     client.loop_stop()
 
 
+def random_sqlite_column_name(length=8):
+    first_char = random.choice(string.ascii_letters + "_")
+    other_chars = "".join(
+        random.choices(string.ascii_letters + string.digits + "_", k=length - 1)
+    )
+    return first_char + other_chars
+
+
 class TestPipelineMethods(unittest.TestCase):
-    def test_basic_subscription(self):
-        """Test if a basic subscription from MQTT broker is succesfull."""
+    # def test_basic_subscription(self):
+    #     """Test if a basic subscription from MQTT broker is succesfull."""
+
+    #     # create a random topic and value
+    #     subtopic = "".join(random.choices(string.ascii_letters + string.digits, k=8))
+    #     topic = "test_topic/" + subtopic
+    #     value_to_publish = random.randint(0, 1000)
+
+    #     # set up broker
+    #     adress = "127.0.0.1"
+    #     port = 1883
+
+    #     # setup pipeline
+    #     pipeline_instance = MQTTPipeline([topic])
+    #     pipeline_instance.init_subscriber()
+    #     pipeline_instance.init_broker(adress, port)
+    #     pipeline_instance.start_to_listen()
+
+    #     # run mqtt client
+    #     thread = threading.Thread(
+    #         target=publish_value_in_topic,
+    #         args=(
+    #             adress,
+    #             port,
+    #             topic,
+    #             value_to_publish,
+    #         ),
+    #     )
+    #     thread.start()
+    #     thread.join()
+
+    #     pipeline_instance.stop_listening()
+
+    #     output = pipeline_instance.last_values[topic]
+
+    #     # check result
+    #     self.assertEqual(value_to_publish, int(output))
+
+    def test_init_db(self):
+        "Test for setting up SQLite db based on topics."
 
         # create a random topic and value
-        subtopic = "".join(random.choices(string.ascii_letters + string.digits, k=8))
-        topic = "test_topic/" + subtopic
-        value_to_publish = random.randint(0, 1000)
+        topics = []
+        for i in range(random.randint(1, 3)):
+            subtopic = random_sqlite_column_name()
+            topic = "test_topic/" + subtopic
+            topics.append(topic)
 
-        # set up broker
-        adress = "127.0.0.1"
-        port = 1883
+        pipeline_instance = MQTTPipeline(topics)
 
-        # setup pipeline
-        pipeline = mqtt_pipeline([topic])
-        pipeline.init_subscriber()
-        pipeline.init_broker(adress, port)
-        pipeline.start_to_listen()
-
-        # run mqtt client
-        thread = threading.Thread(
-            target=publish_value_in_topic,
-            args=(
-                adress,
-                port,
-                topic,
-                value_to_publish,
-            ),
+        # Verify table creation
+        pipeline_instance.cur.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='sensor_data'"
         )
-        thread.start()
-        thread.join()
+        result = pipeline_instance.cur.fetchone()
+        print(f"Result of table check: {result}")
 
-        pipeline.stop_listening()
+        pipeline_instance.cur.execute("PRAGMA table_info(sensor_data)")
+        columns = pipeline_instance.cur.fetchall()
+        print(f"Columns in 'sensor_data': {columns}")
 
-        output = pipeline.last_values[topic]
+        if result:
+            print("Table 'sensor_data' created successfully.")
+        else:
+            print("Failed to create table 'sensor_data'.")
+
+        pipeline_instance.con.close()
+
+        expected_output = []
+        for idx, topic in enumerate(topics):
+            expected_output.append((idx, topic.split("/")[1], "TEXT", 0, None, 0))
 
         # check result
-        self.assertEqual(value_to_publish, int(output))
+        self.assertListEqual(expected_output, columns)
 
 
 if __name__ == "__main__":

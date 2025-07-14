@@ -1,5 +1,6 @@
 import random
 from paho.mqtt import client as mqtt_client
+import sqlite3
 import threading
 
 
@@ -16,10 +17,32 @@ class ETLPipeline:
         pass
 
     def init_db(self):
-        pass
+        """Initiate a SQLite database for starters to store the acquired sensor data."""
 
-    def load_into_db(self):
-        pass
+        # create db
+        self.con = sqlite3.connect("sensor_data.db")
+        self.cur = self.con.cursor()
+
+        # create columns based on subscribed topics
+        columns = ", ".join([topic.split("/")[1] + " TEXT" for topic in self.topics])
+        self.cur.execute("DROP TABLE IF EXISTS sensor_data")
+        self.cur.execute(f"CREATE TABLE sensor_data({columns})")
+
+    def write_into_db(self, values):
+        """Add a new row in the SQLite db with last values.
+
+        Args:
+            values (str): Received messages from broker
+        """
+        insert_values = []
+        insert_topics = []
+        for value, topic in zip(values, self.topics):
+            insert_values.append(value)
+            insert_topics.append(topic.split("/")[1])
+
+        self.cur.execute(
+            f"INSERT INTO sensor_data({insert_topics}) VALUES({insert_values})"
+        )
 
 
 class MQTTPipeline(ETLPipeline):
@@ -58,9 +81,6 @@ class MQTTPipeline(ETLPipeline):
 
             # Beispiel: letzten Wert pro Topic speichern
             self.last_values[topic] = payload
-            # We only want to process 10 messages
-            # if len(userdata) >= 10:
-            #    client.unsubscribe("$SYS/#")
 
         # callback function when client receives a CONNACK response from the server
         def on_connect(client, userdata, flags, reason_code, properties):
