@@ -73,7 +73,9 @@ class ETLPipeline:
         os.remove("sensor_data.db")
 
     def transform_data(self):
-        """Do simple statistics after"""
+        """Get all topic-wise values from the subscrition buffers.
+        Do simple temporal statistics over discrete timestep and
+        store result in SQLite db."""
 
         self.init_db()
 
@@ -91,21 +93,23 @@ class ETLPipeline:
 
                     if items:
                         mean_value_list.append(statistics.fmean(items))
-
-                    # print("hier angekommen")
-                    # std_value = math.stdev(items)
-                    # median_value = math.median(items)
+                        # std_value = math.stdev(items)
+                        # median_value = math.median(items)
 
                 if len(mean_value_list) == len(self.topics):
                     self.write_into_db(mean_value_list)
 
                 time_start = time.time()
 
-    def transform_and_load(self):
+    def start_transform_and_load(self):
+        """Start transform and load thread."""
+
         self.tl_thread = threading.Thread(target=self.transform_data)
         self.tl_thread.start()
 
     def stop_transform_and_load(self):
+        """Stop transform and load thread."""
+
         self.perform_tl = False
         self.tl_thread.join()
 
