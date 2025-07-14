@@ -35,3 +35,18 @@ Sensor data is generated, sent via **Mosquitto** (MQTT broker), received with **
 2. Install Python dependencies:
    ```bash
    pip install paho-mqtt
+3. Run the scripts
+
+Run the scripts to:
+- Simulate sensors and publish data (`Machine`)
+- Subscribe, transform, and store data (`MQTTPipeline`)
+
+## 📦 Project Structure
+
+```text
+├── main.py              # Entry point to start publishing & ETL pipeline
+├── machine.py           # Simulates sensors and publishes data
+├── sensor.py            # Defines Sensor class
+├── pipeline.py          # ETL pipeline logic (buffering, transform, load)
+└── sensor_data.db       # SQLite database (created at runtime)
+
