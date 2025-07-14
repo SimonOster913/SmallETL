@@ -2,6 +2,7 @@ import random
 from paho.mqtt import client as mqtt_client
 import sqlite3
 import threading
+import queue
 
 
 class ETLPipeline:
@@ -10,17 +11,37 @@ class ETLPipeline:
         self.subscriber = None
         self.broker_adress: str = ""
         self.last_values: dict = {}
-        self.port: int = None
+        self.port: int = 0
+        self.init_buffer()
         self.init_db()
 
     def transform_data(self):
         pass
 
-    def init_queues(self):
-        pass
+    def init_buffer(self):
+        """Build a queue for each topic."""
 
-    def move_to_queue(self):
-        pass
+        self.buffer_dict = {topic: queue.Queue() for topic in self.topics}
+        print(self.buffer_dict)
+
+    def move_to_buffer(self, topic: str, value):
+        """Add a value to a topic-specific buffer."""
+
+        print(topic, value)
+        self.buffer_dict[topic].put(value)
+
+    def remove_all_from_buffer(self, topic: str):
+        """Return all values to from a topic-specific buffer. Empty the buffer."""
+
+        items = []
+        buffer = self.buffer_dict[topic]
+        while not buffer.empty():
+            try:
+                items.append(buffer.get())
+            except buffer.empty():
+                break
+
+        return items
 
     def init_db(self):
         """Initiate a SQLite database for starters to store the acquired sensor data."""
@@ -43,12 +64,12 @@ class ETLPipeline:
         insert_topics = ", ".join([topic.split("/")[1] for topic in self.topics])
         insert_values = ", ".join([value for value in values])
 
-        print(insert_values)
-        print(insert_topics)
-
         self.cur.execute(
             f"INSERT INTO sensor_data({insert_topics}) VALUES({insert_values})"
         )
+
+    def delete_db():
+        pass
 
 
 class MQTTPipeline(ETLPipeline):
@@ -87,6 +108,8 @@ class MQTTPipeline(ETLPipeline):
 
             # Beispiel: letzten Wert pro Topic speichern
             self.last_values[topic] = payload
+
+            # ADD HERE: Put incoming values into queue
 
         # callback function when client receives a CONNACK response from the server
         def on_connect(client, userdata, flags, reason_code, properties):
